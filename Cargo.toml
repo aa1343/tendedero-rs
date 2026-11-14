@@ -1,0 +1,33 @@
+[package]
+name = "tendedero-rs"
+version = "1.1.0"
+edition = "2021"
+description = "Windows port of Tendedero in Rust — screenshots, clipboard copies & TODO sticky notes on a clothesline."
+authors = ["Antigravity"]
+
+[build-dependencies]
+tauri-build = { version = "2.0", features = [] }
+
+[dependencies]
+tauri = { version = "2.0", features = ["tray-icon", "image-png", "image-ico"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+dirs = "5.0"
+uuid = { version = "1.10", features = ["v4", "serde"] }
+open = "5.3"
+image = { version = "0.25", default-features = false, features = ["png"] }
+arboard = "3.4"
+base64 = "0.22"
+
+[dependencies.windows]
+version = "0.58"
+features = [
+    "Win32_Foundation",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_Graphics_Gdi",
+    "Win32_System_Registry",
+    "Win32_System_DataExchange",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_System_Environment",
+]
