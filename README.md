@@ -36,6 +36,9 @@
 | 📸 **Instant Screen Capture** | Press `Ctrl+Alt+S` to capture your primary display via high-speed native Win32 GDI and hang it on the line instantly. |
 | 📋 **Smart Clipboard Watcher** | Automatically hangs newly copied images, plain text, and web links (sensitive/password fields are never captured). |
 | 📝 **NEW: Sticky Todo Notes** | Hang colorful sticky notes on the line! Check off tasks directly on the card, press Enter to add items inline, track real-time progress bars, and customize 5 theme colors (`Ctrl+Alt+N`). |
+| 🗑️ **NEW: Quick Del Key Removal** | Hover over any card and press `Del` / `Delete` to take it down with a realistic falling drop animation. Supports rapid consecutive deletions and `Ctrl+Z` multi-step undo. |
+| 🧺 **NEW: Auto-Tuck on Shutdown & Local Archive** | Cards without pins are automatically taken down and archived to local storage upon shutdown or app exit (persisted for 1 day, auto-cleaned after 3 days). |
+| ⚡ **NEW: Zero-Delay Auto-Tuck** | Removed the awkward 450ms wait delay—the clothesline now tucks back within 40ms the moment your pointer leaves the card area, instantly restoring click-through pass-through. |
 | 🚀 **NEW: Auto-start on Boot** | Right-click the tray icon to toggle "Launch at Login" anytime. Built with native Win32 registry standards (`HKCU\...\Run`), completely clean with zero background bloat. |
 | 👻 **Flawless Mouse Pass-Through** | 100% click-through pass-through when tucked in—never blocks clicks on your browser tabs, window titlebars, or desktop icons. |
 | 🔍 **Line Search** | Press `Ctrl+Alt+F` to search through notes, todos, and card titles across the clothesline. |

@@ -46,6 +46,13 @@ pub struct Card {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ArchivedCard {
+    pub card: Card,
+    pub archived_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AppSettings {
     pub lang: String,
     pub watch_clipboard_image: bool,

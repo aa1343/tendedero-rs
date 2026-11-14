@@ -3,7 +3,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use dirs::data_dir;
-use crate::models::{AppSettings, Card, CardType, TodoCard, TodoItem};
+use crate::models::{AppSettings, ArchivedCard, Card, CardType, TodoCard, TodoItem};
 use chrono::Local;
 
 pub struct StorageManager {
@@ -23,16 +23,32 @@ impl StorageManager {
         let _ = fs::create_dir_all(base_dir.join("Notes"));
         let _ = fs::create_dir_all(base_dir.join("Todos"));
         let _ = fs::create_dir_all(base_dir.join("Trash"));
+        let _ = fs::create_dir_all(base_dir.join("Archive"));
 
         let settings = Self::load_settings(&base_dir);
         let cards = Self::load_cards(&base_dir);
 
-        Arc::new(Self {
+        let manager = Arc::new(Self {
             base_dir,
             settings: Mutex::new(settings),
             cards: Mutex::new(cards),
             undo_stack: Mutex::new(Vec::new()),
-        })
+        });
+
+        // 1. 关机/开机自动取下：开机启动时自动将上一会话未固定的卡片收纳至本地归档
+        manager.archive_unpinned_cards();
+
+        // 2. 自动清理机制：超过 3 天的历史归档与临时文件彻底删除
+        manager.clean_expired_data();
+
+        // 3. 启动后台定时任务：每隔 1 小时自动扫描清理满 3 天的历史文件
+        let timer_manager = manager.clone();
+        std::thread::spawn(move || loop {
+            std::thread::sleep(std::time::Duration::from_secs(3600));
+            timer_manager.clean_expired_data();
+        });
+
+        manager
     }
 
     pub fn get_base_dir(&self) -> PathBuf {
@@ -227,5 +243,168 @@ impl StorageManager {
             self.save_cards();
         }
         updated_card
+    }
+
+    pub fn get_archive_dir(&self) -> PathBuf {
+        self.base_dir.join("Archive")
+    }
+
+    /// 关机/退出/开机自动取下：将未用图钉固定的卡片全部从绳上收纳至本地归档
+    pub fn archive_unpinned_cards(&self) -> usize {
+        let mut to_archive = Vec::new();
+        let now = Local::now().timestamp_millis();
+        {
+            let mut cards = self.cards.lock().unwrap();
+            let mut retained = Vec::new();
+            for card in cards.drain(..) {
+                if card.pinned {
+                    retained.push(card);
+                } else {
+                    to_archive.push(ArchivedCard {
+                        card,
+                        archived_at: now,
+                    });
+                }
+            }
+            *cards = retained;
+        }
+
+        if to_archive.is_empty() {
+            return 0;
+        }
+
+        let count = to_archive.len();
+        let archive_dir = self.get_archive_dir();
+        let _ = fs::create_dir_all(&archive_dir);
+        let archive_file = archive_dir.join("archive.json");
+
+        // 1. 读取既有归档
+        let mut all_archive: Vec<ArchivedCard> = Vec::new();
+        if let Ok(mut f) = File::open(&archive_file) {
+            let mut s = String::new();
+            if f.read_to_string(&mut s).is_ok() {
+                if let Ok(parsed) = serde_json::from_str(&s) {
+                    all_archive = parsed;
+                }
+            }
+        }
+
+        // 2. 插入新取下的卡片
+        for item in to_archive.into_iter().rev() {
+            all_archive.insert(0, item);
+        }
+
+        // 3. 保存 archive.json
+        if let Ok(json) = serde_json::to_string_pretty(&all_archive) {
+            let _ = fs::write(&archive_file, json);
+        }
+
+        // 4. 追加至方便用户直接查阅的文本文件：Archive/便签与文字历史归档.txt
+        let text_file = archive_dir.join("便签与文字历史归档.txt");
+        let date_str = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+        let mut txt = String::new();
+        for item in &all_archive[0..count] {
+            txt.push_str(&format!(
+                "\n========================================\n【收纳时间】{}\n【标题】{}\n",
+                date_str, item.card.title
+            ));
+            if let Some(ref todo) = item.card.todo_data {
+                txt.push_str("【待办条目】\n");
+                for it in &todo.items {
+                    txt.push_str(&format!("  [{}] {}\n", if it.done { "√" } else { " " }, it.text));
+                }
+            } else if !item.card.content.is_empty() {
+                txt.push_str(&format!("【内容】{}\n", item.card.content));
+            }
+            if let Some(ref path) = item.card.file_path {
+                txt.push_str(&format!("【关联文件】{}\n", path));
+            }
+        }
+        if !txt.is_empty() {
+            use std::io::Write;
+            if let Ok(mut f) = fs::OpenOptions::new().create(true).append(true).open(&text_file) {
+                let _ = f.write_all(txt.as_bytes());
+            }
+        }
+
+        // 5. 更新保存绳上的 cards.json
+        self.save_cards();
+
+        count
+    }
+
+    /// 自动清理：超过 3 天（72小时）的历史归档与关联截图物理文件彻底删除
+    pub fn clean_expired_data(&self) -> usize {
+        let now = Local::now().timestamp_millis();
+        let retention_ms = 3 * 24 * 3600 * 1000; // 3 天有效保留期
+        let archive_dir = self.get_archive_dir();
+        let archive_file = archive_dir.join("archive.json");
+
+        let mut all_archive: Vec<ArchivedCard> = Vec::new();
+        if let Ok(mut f) = File::open(&archive_file) {
+            let mut s = String::new();
+            if f.read_to_string(&mut s).is_ok() {
+                if let Ok(parsed) = serde_json::from_str(&s) {
+                    all_archive = parsed;
+                }
+            }
+        }
+
+        let mut kept = Vec::new();
+        let mut deleted_count = 0;
+
+        for item in all_archive {
+            let age = now.saturating_sub(item.archived_at);
+            if age > retention_ms {
+                // 满 3 天彻底从磁盘中删除原图文件
+                if let Some(ref path_str) = item.card.file_path {
+                    let p = Path::new(path_str);
+                    if p.exists() {
+                        let _ = fs::remove_file(p);
+                    }
+                }
+                deleted_count += 1;
+            } else {
+                kept.push(item);
+            }
+        }
+
+        if deleted_count > 0 {
+            if let Ok(json) = serde_json::to_string_pretty(&kept) {
+                let _ = fs::write(&archive_file, json);
+            }
+        }
+
+        // 清理回收站 (Trash) 中超过 3 天的文件
+        let trash_dir = self.get_trash_dir();
+        if let Ok(entries) = fs::read_dir(&trash_dir) {
+            for entry in entries.flatten() {
+                if let Ok(meta) = entry.metadata() {
+                    if let Ok(modified) = meta.modified() {
+                        if let Ok(elapsed) = modified.elapsed() {
+                            if elapsed.as_secs() > 3 * 24 * 3600 {
+                                let _ = fs::remove_file(entry.path());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        deleted_count
+    }
+
+    /// 获取所有在本地保存的归档卡片列表（包含 1 天内及 3 天有效期的）
+    pub fn get_archived_cards(&self) -> Vec<ArchivedCard> {
+        let archive_file = self.get_archive_dir().join("archive.json");
+        if let Ok(mut f) = File::open(&archive_file) {
+            let mut s = String::new();
+            if f.read_to_string(&mut s).is_ok() {
+                if let Ok(parsed) = serde_json::from_str(&s) {
+                    return parsed;
+                }
+            }
+        }
+        Vec::new()
     }
 }

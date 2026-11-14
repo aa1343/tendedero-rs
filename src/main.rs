@@ -64,6 +64,7 @@ fn main() {
     }
 
     let storage = StorageManager::new();
+    let storage_for_exit = storage.clone();
 
     tauri::Builder::default()
         .manage(storage.clone())
@@ -91,6 +92,8 @@ fn main() {
             commands::get_autostart_status,
             commands::toggle_autostart,
             commands::focus_window,
+            commands::get_archived_cards,
+            commands::archive_now,
         ])
         .setup(move |app| {
             let app_handle = app.handle().clone();
@@ -120,6 +123,11 @@ fn main() {
 
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(move |_app_handle, event| {
+            if let tauri::RunEvent::ExitRequested { .. } = event {
+                storage_for_exit.archive_unpinned_cards();
+            }
+        });
 }

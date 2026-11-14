@@ -25,7 +25,7 @@ pub fn start_mouse_tracker(app_handle: AppHandle, storage: Arc<StorageManager>) 
         let mut away_start: Option<Instant> = None;
 
         loop {
-            std::thread::sleep(Duration::from_millis(30));
+            std::thread::sleep(Duration::from_millis(16));
 
             let opens_from_top = storage.settings.lock().unwrap().opens_from_top_edge;
             let mut pt = POINT { x: 0, y: 0 };
@@ -38,10 +38,10 @@ pub fn start_mouse_tracker(app_handle: AppHandle, storage: Arc<StorageManager>) 
             let is_revealed = IS_REVEALED.load(Ordering::SeqCst);
             let is_locked = IS_LOCKED.load(Ordering::SeqCst);
 
-            // 1. 指针在屏幕顶边 (y <= 8) 停留 200ms，平滑滑下晾衣绳
+            // 1. 指针在屏幕顶边 (y <= 8) 停留 180ms，平滑滑下晾衣绳
             if opens_from_top && pt.y <= 8 && !is_revealed {
                 if let Some(start) = dwell_start {
-                    if start.elapsed() >= Duration::from_millis(200) {
+                    if start.elapsed() >= Duration::from_millis(180) {
                         dwell_start = None;
                         set_revealed_state(&app_handle, true);
                     }
@@ -52,11 +52,11 @@ pub fn start_mouse_tracker(app_handle: AppHandle, storage: Arc<StorageManager>) 
                 dwell_start = None;
             }
 
-            // 2. 移开鼠标到下方 (y > 340) 持续 450ms，自动收回并恢复穿透
+            // 2. 指针移开到下方 (y > 260)，立马缩回晾衣绳并瞬间恢复鼠标穿透（零迟滞不用等）
             if is_revealed && !is_locked {
-                if pt.y > 340 {
+                if pt.y > 260 {
                     if let Some(start) = away_start {
-                        if start.elapsed() >= Duration::from_millis(450) {
+                        if start.elapsed() >= Duration::from_millis(40) {
                             away_start = None;
                             set_revealed_state(&app_handle, false);
                         }

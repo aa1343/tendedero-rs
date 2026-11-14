@@ -2,7 +2,7 @@ use std::sync::atomic::Ordering;
 use tauri::{
     menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Emitter,
+    AppHandle, Emitter, Manager,
 };
 use crate::mouse_tracker::IS_REVEALED;
 
@@ -92,6 +92,9 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                     let _ = app_handle.emit("open_data_folder", ());
                 }
                 "quit" => {
+                    if let Some(storage) = app_handle.try_state::<std::sync::Arc<crate::storage::StorageManager>>() {
+                        storage.archive_unpinned_cards();
+                    }
                     app_handle.exit(0);
                 }
                 _ => {}

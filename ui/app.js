@@ -20,6 +20,28 @@ const listen = (event, handler) => {
 let cards = [];
 let isRevealed = true;
 let currentModalTodoId = null;
+let lastMouseX = -1;
+let lastMouseY = -1;
+let hoveredCardId = null;
+
+function updateHoveredCard() {
+  if (lastMouseX < 0 || lastMouseY < 0) return;
+  const el = document.elementFromPoint(lastMouseX, lastMouseY);
+  if (el) {
+    const cardEl = el.closest('.card');
+    if (cardEl && cardEl.id && cardEl.id.startsWith('card-')) {
+      hoveredCardId = cardEl.id.replace('card-', '');
+      return;
+    }
+  }
+  hoveredCardId = null;
+}
+
+window.addEventListener('mousemove', (e) => {
+  lastMouseX = e.clientX;
+  lastMouseY = e.clientY;
+  updateHoveredCard();
+});
 
 const lineRoot = document.getElementById('lineRoot');
 const cardsContainer = document.getElementById('cards');
@@ -119,10 +141,22 @@ function renderCards() {
     const hit = document.createElement('div');
     hit.className = 'hit';
 
+    // Hover detection for Del shortcut & auto window focus
+    hit.addEventListener('mouseenter', () => {
+      hoveredCardId = card.id;
+      invoke('focus_window');
+      window.focus();
+    });
+    hit.addEventListener('mouseleave', () => {
+      if (hoveredCardId === card.id) {
+        hoveredCardId = null;
+      }
+    });
+
     // Corner buttons (Pin, Delete)
     const delBtn = document.createElement('button');
     delBtn.className = 'corner-btn corner-del';
-    delBtn.title = '取下卡片 (Del)';
+    delBtn.title = '取下卡片 (按 Del 键)';
     delBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>';
     delBtn.onclick = (e) => {
       e.stopPropagation();
@@ -307,10 +341,19 @@ async function loadCards() {
 
 async function removeCard(id) {
   try {
+    const cardEl = document.getElementById(`card-${id}`);
+    if (cardEl) {
+      cardEl.classList.add('dropping');
+      await new Promise(r => setTimeout(r, 160));
+    }
     await invoke('remove_card', { id });
     cards = cards.filter(c => c.id !== id);
+    if (hoveredCardId === id) {
+      hoveredCardId = null;
+    }
     renderCards();
     showToast('已从绳上取下 (按 Ctrl+Z 撤销)');
+    setTimeout(updateHoveredCard, 50);
   } catch (e) {
     console.error(e);
   }
@@ -408,12 +451,19 @@ function closeAllModals() {
   invoke('set_locked', { locked: false });
 }
 
-function openSearchModal() {
+let cachedArchive = [];
+
+async function openSearchModal() {
   setRevealed(true);
   modalOverlay.style.display = 'flex';
   searchModal.style.display = 'block';
   todoDetailModal.style.display = 'none';
   searchInput.value = '';
+  try {
+    cachedArchive = await invoke('get_archived_cards') || [];
+  } catch (e) {
+    cachedArchive = [];
+  }
   renderSearchResults('');
   invoke('set_locked', { locked: true });
   setTimeout(() => searchInput.focus(), 50);
@@ -432,7 +482,18 @@ function renderSearchResults(query) {
     return false;
   });
 
-  if (matched.length === 0) {
+  const archivedMatched = (cachedArchive || []).filter(item => {
+    const c = item.card;
+    if (!q) return false;
+    if (c.title && c.title.toLowerCase().includes(q)) return true;
+    if (c.content && c.content.toLowerCase().includes(q)) return true;
+    if (c.todoData) {
+      return c.todoData.items.some(i => i.text.toLowerCase().includes(q));
+    }
+    return false;
+  });
+
+  if (matched.length === 0 && archivedMatched.length === 0) {
     searchResults.innerHTML = '<div style="padding: 16px; text-align: center; color: #8e8e93; font-size: 13px;">无匹配结果</div>';
     return;
   }
@@ -449,6 +510,33 @@ function renderSearchResults(query) {
     item.onclick = () => {
       closeAllModals();
       copyCard(c.id);
+    };
+    searchResults.appendChild(item);
+  });
+
+  archivedMatched.forEach(arch => {
+    const c = arch.card;
+    const diffHours = Math.round((Date.now() - arch.archivedAt) / 3600000);
+    const timeLabel = diffHours < 1 ? '刚刚归档' : (diffHours < 24 ? `${diffHours}小时前归档` : `${Math.round(diffHours / 24)}天前归档`);
+    const item = document.createElement('div');
+    item.className = 'search-item';
+    item.style.opacity = '0.85';
+    item.innerHTML = `
+      <div>
+        <div class="search-item-title">📦 ${c.title}</div>
+        <div class="search-item-meta" style="color: #007aff;">[本地归档 · ${timeLabel}] ${c.meta || c.cardType}</div>
+      </div>
+    `;
+    item.onclick = () => {
+      closeAllModals();
+      if (c.cardType === 'screenshot' || c.cardType === 'image') {
+        if (c.filePath) {
+          invoke('open_card', { id: c.id });
+        }
+      } else {
+        copyCard(c.id);
+      }
+      showToast('已从本地归档获取内容！');
     };
     searchResults.appendChild(item);
   });
@@ -598,6 +686,25 @@ window.addEventListener('keydown', (e) => {
   if (e.ctrlKey && e.key.toLowerCase() === 'z') {
     undoRemove();
   }
+  // 光标悬停在绳上物品时按 Del / Delete 快速删除
+  if (e.key === 'Delete' || e.key === 'Del' || e.code === 'Delete') {
+    const active = document.activeElement;
+    const isEditingText = active && (
+      active.tagName === 'INPUT' ||
+      active.tagName === 'TEXTAREA' ||
+      active.isContentEditable
+    );
+    if (!isEditingText && modalOverlay.style.display === 'none') {
+      if (!hoveredCardId) {
+        updateHoveredCard();
+      }
+      if (hoveredCardId) {
+        e.preventDefault();
+        const idToDelete = hoveredCardId;
+        removeCard(idToDelete);
+      }
+    }
+  }
 });
 
 // 点击空白区域自动收回晾衣绳并恢复穿透
@@ -645,5 +752,5 @@ window.addEventListener('DOMContentLoaded', () => {
   loadCards();
   attachHoverDetection();
   setRevealed(true);
-  showToast('晾衣绳已就绪！点击空白处或向下移开鼠标即可收起');
+  showToast('晾衣绳已就绪！关机自动收纳，本地保留1天，3天自动清理');
 });

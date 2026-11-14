@@ -6,8 +6,8 @@ use chrono::Local;
 use tauri::{AppHandle, Emitter, State, WebviewWindow};
 use crate::capture::capture_primary_screen;
 use crate::clipboard::{copy_image_to_clipboard, copy_text_to_clipboard};
-use crate::models::{AppSettings, Card, CardType, TodoCard, TodoItem};
-use crate::mouse_tracker::{IS_LOCKED, IS_REVEALED};
+use crate::models::{AppSettings, ArchivedCard, Card, CardType, TodoCard, TodoItem};
+use crate::mouse_tracker::IS_LOCKED;
 use crate::storage::StorageManager;
 
 #[tauri::command]
@@ -203,7 +203,7 @@ pub fn create_todo(
         content: String::new(),
         thumbnail_data: None,
         meta: Some(format!("0/{} 已完成", total)),
-        pinned: true, // Default to pinned so auto-clean does not drop important tasks
+        pinned: false, // 默认不锁定，关机自动取下归档；重要待办可点击图钉锁定
         created_at: now,
         file_path: None,
         todo_data: Some(todo_card),
@@ -297,12 +297,14 @@ pub fn toggle_autostart() -> Result<bool, String> {
 #[tauri::command]
 pub fn focus_window(window: WebviewWindow) {
     let _ = window.set_focus();
-    #[cfg(target_os = "windows")]
-    unsafe {
-        if let Ok(hwnd) = window.hwnd() {
-            use windows::Win32::UI::WindowsAndMessaging::{SetActiveWindow, SetForegroundWindow};
-            let _ = SetActiveWindow(hwnd);
-            let _ = SetForegroundWindow(hwnd);
-        }
-    }
+}
+
+#[tauri::command]
+pub fn get_archived_cards(storage: State<Arc<StorageManager>>) -> Vec<ArchivedCard> {
+    storage.get_archived_cards()
+}
+
+#[tauri::command]
+pub fn archive_now(storage: State<Arc<StorageManager>>) -> usize {
+    storage.archive_unpinned_cards()
 }

@@ -1,6 +1,6 @@
 [package]
 name = "tendedero-rs"
-version = "1.1.0"
+version = "1.1.1"
 edition = "2021"
 description = "Windows port of Tendedero in Rust — screenshots, clipboard copies & TODO sticky notes on a clothesline."
 authors = ["Antigravity"]
