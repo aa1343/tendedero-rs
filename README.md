@@ -33,7 +33,7 @@
 
 | Feature | Description |
 |---|---|
-| 📸 **Instant Screen Capture** | Press `Ctrl+Alt+S` to capture your primary display via high-speed native Win32 GDI and hang it on the line instantly. |
+| 📸 **Instant Screen Capture & Smart Preview** | Press `Ctrl+Alt+S` to capture your primary display via Win32 GDI. Features an intelligent 3.5s auto-preview grace period—slides down automatically, tucks back smoothly if untouched, or stays open when hovered. |
 | 📋 **Smart Clipboard Watcher** | Automatically hangs newly copied images, plain text, and web links (sensitive/password fields are never captured). |
 | 📝 **NEW: Sticky Todo Notes** | Hang colorful sticky notes on the line! Check off tasks directly on the card, press Enter to add items inline, track real-time progress bars, and customize 5 theme colors (`Ctrl+Alt+N`). |
 | 🗑️ **NEW: Quick Del Key Removal** | Hover over any card and press `Del` / `Delete` to take it down with a realistic falling drop animation. Supports rapid consecutive deletions and `Ctrl+Z` multi-step undo. |
@@ -68,7 +68,7 @@
 - **Pin Icon (Top-Right)**: Pin / Unpin the card. Pinned cards are permanently kept on the line.
 - **Close Button (Top-Left)**: Take card down into app Trash (press `Ctrl+Z` to undo anytime).
 - **Inline Checkbox (Todo)**: Click checkbox on the sticky note to toggle completion with a smooth strike-through animation.
-- **Click Outside / Scroll Away**: Clicking anywhere on the empty desktop or moving the cursor away automatically tucks the line back into stealth pass-through mode.
+- **Click Outside / Move Away**: Pointer moving down tucks the line back within 40ms; screenshots and copied items tuck away smoothly after a 3.5s grace period if untouched.
 
 ---
 

@@ -62,6 +62,7 @@ pub fn capture_screen_now(app: AppHandle, storage: State<Arc<StorageManager>>) -
         todo_data: None,
     };
     storage.add_card(card.clone());
+    crate::mouse_tracker::trigger_preview(&app, 3500);
     let _ = app.emit("card_added", &card);
     Ok(card)
 }
@@ -210,6 +211,7 @@ pub fn create_todo(
     };
 
     storage.add_card(card.clone());
+    crate::mouse_tracker::trigger_preview(&app, 3500);
     let _ = app.emit("card_added", &card);
     card
 }

@@ -80,6 +80,7 @@ pub fn start_clipboard_monitor(app_handle: AppHandle, storage: Arc<StorageManage
                             };
 
                             storage.add_card(card.clone());
+                            crate::mouse_tracker::trigger_preview(&app_handle, 3500);
                             let _ = app_handle.emit("card_added", &card);
                         } else if !is_link && settings.watch_clipboard_text {
                             let now = Local::now().timestamp_millis();
@@ -108,6 +109,7 @@ pub fn start_clipboard_monitor(app_handle: AppHandle, storage: Arc<StorageManage
                             };
 
                             storage.add_card(card.clone());
+                            crate::mouse_tracker::trigger_preview(&app_handle, 3500);
                             let _ = app_handle.emit("card_added", &card);
                         }
                     }
@@ -163,6 +165,7 @@ pub fn start_clipboard_monitor(app_handle: AppHandle, storage: Arc<StorageManage
                                 };
 
                                 storage.add_card(card.clone());
+                                crate::mouse_tracker::trigger_preview(&app_handle, 3500);
                                 let _ = app_handle.emit("card_added", &card);
                             }
                         }

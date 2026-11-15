@@ -362,7 +362,7 @@ async function removeCard(id) {
 async function undoRemove() {
   try {
     const card = await invoke('undo_remove');
-    if (card) {
+    if (card && !cards.some(c => c.id === card.id)) {
       cards.unshift(card);
       renderCards();
       showToast('已撤销取下卡片！');
@@ -610,10 +610,12 @@ async function createNewTodoCard() {
       color: 'yellow',
       items: ['双击编辑待办清单', '点击方框勾选完成'],
     });
-    cards.unshift(card);
-    renderCards();
+    // 防御性去重：若 card_added 广播已插入则无需重复 unshift
+    if (!cards.some(c => c.id === card.id)) {
+      cards.unshift(card);
+      renderCards();
+    }
     setRevealed(true);
-    showToast('已挂上新待办便签！');
     openTodoDetailModal(card.id);
   } catch (e) {
     console.error(e);
@@ -725,10 +727,12 @@ window.addEventListener('resize', () => {
 // Tauri Event Bus Listeners
 listen('set_revealed', (event) => setRevealed(event.payload));
 listen('card_added', (event) => {
-  cards.unshift(event.payload);
-  renderCards();
-  setRevealed(true);
-  showToast('新内容已晾上绳子！');
+  const newCard = event.payload;
+  if (!cards.some(c => c.id === newCard.id)) {
+    cards.unshift(newCard);
+    renderCards();
+    showToast('新内容已晾上绳子！');
+  }
 });
 listen('open_new_todo', () => createNewTodoCard());
 listen('open_search', () => openSearchModal());

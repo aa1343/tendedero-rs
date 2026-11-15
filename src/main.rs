@@ -121,6 +121,9 @@ fn main() {
             mouse_tracker::start_mouse_tracker(app_handle.clone(), storage.clone());
             hotkey::start_hotkey_listener(app_handle.clone(), storage.clone());
 
+            // 启动就绪欢迎预览：展现 4 秒供用户知晓就绪状态，若未操作则自动优雅缩回
+            crate::mouse_tracker::trigger_preview(&app_handle, 4000);
+
             Ok(())
         })
         .build(tauri::generate_context!())

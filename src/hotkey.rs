@@ -41,9 +41,6 @@ pub fn start_hotkey_listener(app_handle: AppHandle, storage: Arc<StorageManager>
                         crate::mouse_tracker::set_revealed_state(&app_handle, next);
                     }
                     HOTKEY_ID_CAPTURE => {
-                        // Ensure revealed so user sees the new card slide down!
-                        crate::mouse_tracker::set_revealed_state(&app_handle, true);
-
                         let shots_dir = storage.get_screenshots_dir();
                         if let Ok(res) = capture_primary_screen(&shots_dir) {
                             let now = Local::now().timestamp_millis();
@@ -60,6 +57,7 @@ pub fn start_hotkey_listener(app_handle: AppHandle, storage: Arc<StorageManager>
                                 todo_data: None,
                             };
                             storage.add_card(card.clone());
+                            crate::mouse_tracker::trigger_preview(&app_handle, 3500);
                             let _ = app_handle.emit("card_added", &card);
                         }
                     }
