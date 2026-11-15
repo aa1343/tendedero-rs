@@ -253,6 +253,8 @@ body:not(.revealed) #topControls {
   height: 100%;
   object-fit: cover;
   display: block;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: high-quality;
 }
 
 .card-info {

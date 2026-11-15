@@ -63,6 +63,7 @@ impl StorageManager {
         self.base_dir.join("Notes")
     }
 
+    #[allow(dead_code)]
     pub fn get_todos_dir(&self) -> PathBuf {
         self.base_dir.join("Todos")
     }
@@ -97,7 +98,21 @@ impl StorageManager {
         if let Ok(mut file) = File::open(&file_path) {
             let mut content = String::new();
             if file.read_to_string(&mut content).is_ok() {
-                if let Ok(cards) = serde_json::from_str(&content) {
+                if let Ok(mut cards) = serde_json::from_str::<Vec<Card>>(&content) {
+                    for card in &mut cards {
+                        if matches!(card.card_type, CardType::Screenshot | CardType::Image) {
+                            if let Some(ref path_str) = card.file_path {
+                                let p = Path::new(path_str);
+                                if p.exists() {
+                                    if let Ok(bytes) = fs::read(p) {
+                                        use base64::Engine;
+                                        let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+                                        card.thumbnail_data = Some(format!("data:image/png;base64,{}", b64));
+                                    }
+                                }
+                            }
+                        }
+                    }
                     return cards;
                 }
             }
@@ -152,8 +167,20 @@ impl StorageManager {
 
     pub fn save_cards(&self) {
         let cards = self.cards.lock().unwrap();
+        // Keep cards.json small on disk by stripping base64 image data;
+        // original files are already permanently saved in Screenshots directory.
+        let disk_cards: Vec<Card> = cards
+            .iter()
+            .map(|c| {
+                let mut clone = c.clone();
+                if matches!(clone.card_type, CardType::Screenshot | CardType::Image) && clone.file_path.is_some() {
+                    clone.thumbnail_data = None;
+                }
+                clone
+            })
+            .collect();
         let file_path = self.base_dir.join("cards.json");
-        if let Ok(json) = serde_json::to_string_pretty(&*cards) {
+        if let Ok(json) = serde_json::to_string_pretty(&disk_cards) {
             let _ = fs::write(file_path, json);
         }
     }
@@ -294,8 +321,18 @@ impl StorageManager {
             all_archive.insert(0, item);
         }
 
-        // 3. 保存 archive.json
-        if let Ok(json) = serde_json::to_string_pretty(&all_archive) {
+        // 3. 保存 archive.json (剥离冗余 base64 图片数据减小体积)
+        let disk_archive: Vec<ArchivedCard> = all_archive
+            .iter()
+            .map(|a| {
+                let mut clone = a.clone();
+                if matches!(clone.card.card_type, CardType::Screenshot | CardType::Image) && clone.card.file_path.is_some() {
+                    clone.card.thumbnail_data = None;
+                }
+                clone
+            })
+            .collect();
+        if let Ok(json) = serde_json::to_string_pretty(&disk_archive) {
             let _ = fs::write(&archive_file, json);
         }
 

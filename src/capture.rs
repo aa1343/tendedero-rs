@@ -105,22 +105,12 @@ pub fn capture_primary_screen(save_dir: &PathBuf) -> Result<CaptureResult, Strin
             .map(|m| m.len() as usize)
             .unwrap_or(0);
 
-        // Generate downscaled thumbnail for ultra-responsive UI
-        let thumb_height = 240u32;
-        let thumb_width = (width as u32 * thumb_height) / height as u32;
-        let thumb = image::imageops::resize(
-            &img,
-            thumb_width,
-            thumb_height,
-            image::imageops::FilterType::Triangle,
-        );
-
-        let mut thumb_bytes = Vec::new();
-        let mut cursor = std::io::Cursor::new(&mut thumb_bytes);
-        let _ = thumb.write_to(&mut cursor, image::ImageFormat::Png);
+        // Read saved original PNG directly for 100% full-resolution, ultra-crisp display
+        let png_bytes = std::fs::read(&target_path)
+            .map_err(|e| format!("Failed to read saved screenshot: {}", e))?;
 
         use base64::Engine;
-        let base64_str = base64::engine::general_purpose::STANDARD.encode(&thumb_bytes);
+        let base64_str = base64::engine::general_purpose::STANDARD.encode(&png_bytes);
         let thumbnail_data = format!("data:image/png;base64,{}", base64_str);
 
         Ok(CaptureResult {

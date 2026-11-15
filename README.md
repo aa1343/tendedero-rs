@@ -33,7 +33,7 @@
 
 | Feature | Description |
 |---|---|
-| 📸 **Instant Screen Capture & Smart Preview** | Press `Ctrl+Alt+S` to capture your primary display via Win32 GDI. Features an intelligent 3.5s auto-preview grace period—slides down automatically, tucks back smoothly if untouched, or stays open when hovered. |
+| 📸 **Instant Screen Capture & 100% Lossless Original Quality** | Press `Ctrl+Alt+S` to capture your display. Gone are blurry downscaled thumbnails—**hangs 100% full-resolution lossless original images** with GPU hardware contrast optimization so fine text and sharp lines stay razor-sharp; features an intelligent 3.5s auto-preview grace period. |
 | 📋 **Smart Clipboard Watcher** | Automatically hangs newly copied images, plain text, and web links (sensitive/password fields are never captured). |
 | 📝 **NEW: Sticky Todo Notes** | Hang colorful sticky notes on the line! Check off tasks directly on the card, press Enter to add items inline, track real-time progress bars, and customize 5 theme colors (`Ctrl+Alt+N`). |
 | 🗑️ **NEW: Quick Del Key Removal** | Hover over any card and press `Del` / `Delete` to take it down with a realistic falling drop animation. Supports rapid consecutive deletions and `Ctrl+Z` multi-step undo. |

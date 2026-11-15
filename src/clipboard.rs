@@ -10,6 +10,7 @@ use crate::storage::StorageManager;
 
 static WATCHING: AtomicBool = AtomicBool::new(true);
 
+#[allow(dead_code)]
 pub fn set_clipboard_watching(enabled: bool) {
     WATCHING.store(enabled, Ordering::SeqCst);
 }
@@ -137,18 +138,10 @@ pub fn start_clipboard_monitor(app_handle: AppHandle, storage: Arc<StorageManage
                                     .map(|m| m.len() as usize)
                                     .unwrap_or(0);
 
-                                // Thumbnail
-                                let thumb = image::imageops::resize(
-                                    &rgba,
-                                    160,
-                                    120,
-                                    image::imageops::FilterType::Triangle,
-                                );
-                                let mut thumb_bytes = Vec::new();
-                                let mut cursor = std::io::Cursor::new(&mut thumb_bytes);
-                                let _ = thumb.write_to(&mut cursor, image::ImageFormat::Png);
+                                // Use full original image directly for 100% full-resolution, ultra-crisp display
+                                let original_bytes = std::fs::read(&target_path).unwrap_or_default();
                                 use base64::Engine;
-                                let b64 = base64::engine::general_purpose::STANDARD.encode(&thumb_bytes);
+                                let b64 = base64::engine::general_purpose::STANDARD.encode(&original_bytes);
                                 let thumb_data = format!("data:image/png;base64,{}", b64);
 
                                 let card = Card {
